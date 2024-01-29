@@ -18,8 +18,8 @@ import {ErrorMessage, Field, FieldProps, Form, Formik, useFormikContext} from "f
 import Ajv from "ajv";
 import UiFormTable from "../components/UiFormTable";
 import UiDropdownSelect from "../components/UiDropdownSelect";
-import {Simulate} from "react-dom/test-utils";
-import submit = Simulate.submit;
+import {get} from 'lodash'
+import JSONPretty from 'react-json-pretty';
 
 interface FormData {
   [key: string]: string | number | string[] | undefined;
@@ -118,7 +118,8 @@ function Onboarding() {
         console.log('Could not find schema for ', schemaUri);
         return;
       }
-      const valid = validate(values[getPropertyFromRef(ref)]);
+      console.log("attempting to validate", values[getPropertyFromRef(ref)])
+      const valid = validate(get(values, getPropertyFromRef(ref)));
       if (!valid) {
         // @ts-ignore
         errors[getPropertyFromRef(ref)] = 'This field is invalid';
@@ -175,11 +176,39 @@ function Onboarding() {
   );
 }
 
-const getPropertyFromRef = (ref: string) => {
-  const regex = /[^/]+$/;
-  const match = ref.match(regex);
-  return match ? match[0] : '';
+// const getPropertyFromRef = (ref: string) => {
+//   const regex = /[^/]+$/;
+//   const match = ref.match(regex);
+//   return match ? match[0] : '';
+// }
+
+function getPropertyFromRef(str: string) {
+  // Split the string by '/'
+  const parts = str.split("/");
+
+  // Filter out empty strings and the '#' prefix
+  const filteredParts = parts.filter(part => part !== "" && part !== "#");
+
+  // Map each part to the appropriate property name
+  const transformedParts = filteredParts.map((part, index) => {
+    // For the first part, remove the 'properties' prefix
+    if (index === 0 && part === "properties") {
+      return "";
+    }
+    // For subsequent parts, convert 'properties' to '.'
+    else if (part === "properties") {
+      return ".";
+    }
+    // Otherwise, return the part as is
+    else {
+      return part;
+    }
+  });
+
+  // Join the transformed parts with '.'
+  return transformedParts.join("");
 }
+
 
 type FormStepProps = {
   step: OnboardingFormStep;
@@ -200,6 +229,7 @@ const FormStep = ({ step }: FormStepProps) => {
         {step.elements.map((element, index) => {
           const { ref } = element;
           const elementKey = getPropertyFromRef(ref);
+          console.log('ELEMENT KEY', elementKey);
           switch (element.__typename) {
             case 'UiFormTable':
               return (
@@ -343,7 +373,9 @@ const SubmitSuccessfulComponent = ({ data }: { data: FormData }) => {
         </Flex>
         <Flex flex={1} direction={'column'}>
           <Heading size={'md'} pb={'4'}>Your submitted data:</Heading>
-          <UiFormTable options={submittedDataFormatted} />
+          <JSONPretty data={data} />
+          {/*<Text>{JSON.stringify(data, null, 2)}</Text>*/}
+          {/*<UiFormTable options={submittedDataFormatted} />*/}
         </Flex>
       </Flex>
 
