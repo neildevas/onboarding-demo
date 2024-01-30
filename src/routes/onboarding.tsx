@@ -15,10 +15,10 @@ import React, {useCallback, useEffect, useState} from "react";
 import {onboardingForm, schema} from "../data/mock-onboarding-form";
 import {OnboardingFormElement, OnboardingForm, OnboardingFormStep, FormOption} from "../types/onboarding";
 import {ErrorMessage, Field, FieldProps, Form, Formik, useFormikContext} from "formik";
-import Ajv from "ajv";
+import Ajv, { JSONSchemaType } from "ajv";
 import UiFormTable from "../components/UiFormTable";
 import UiDropdownSelect from "../components/UiDropdownSelect";
-import {get} from 'lodash'
+import {get, merge} from 'lodash'
 import JSONPretty from 'react-json-pretty';
 
 interface FormData {
@@ -33,6 +33,31 @@ function Onboarding() {
   const [didSubmitForm, setDidSubmitForm] = useState<boolean>(false);
   const [ajvInstance, setAjvInstance] = useState(new Ajv());
   const [submittedData, setSubmittedData] = useState<FormData>({});
+  const [generatedSchema, setGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
+
+  useEffect(() => {
+    if (!form) return;
+    // On each page, let's build up a new schema dynamically:
+    // 1. Extract all schemas from every element.
+    const formStep = form.form.steps[currentStepIndex];
+    const formStepSchemas = formStep.elements.map(it => { const { ref, schema } = it; return { ref, schema } });
+    const schemaToAdd = formStepSchemas.reduce((acc, cur) => {
+      const { ref, schema } = cur;
+      // If no schema, we don't need to validate the step against the JSON schema
+      if (!schema) return acc;
+      const { required, ...restSchema } = schema;
+      const propertyName = getPropertyFromRef(ref);
+      const newProperties = { ...acc.properties, [propertyName]: restSchema };
+      const newRequired = [...acc.required];
+      if (required) {
+        newRequired.push(propertyName);
+      }
+      return { properties: newProperties, required: newRequired };
+    }, { properties: {}, required: [] } as { properties: Record<string, any>; required: string[] })
+
+    setGeneratedSchema(it => merge(it, schemaToAdd));
+
+  }, [currentStepIndex, form]);
 
   useEffect(() => {
     // pretend that an API call happens here
@@ -118,7 +143,6 @@ function Onboarding() {
         console.log('Could not find schema for ', schemaUri);
         return;
       }
-      console.log("attempting to validate", values[getPropertyFromRef(ref)])
       const valid = validate(get(values, getPropertyFromRef(ref)));
       if (!valid) {
         // @ts-ignore
@@ -133,7 +157,7 @@ function Onboarding() {
     // TODO - on the last step, validate the entire form
     return validateCurrentStep(values);
   }
-
+  console.log('NEW SCHEMA', generatedSchema);
   return (
     <Flex height={'100vh'} direction={'column'}>
       <Box p={8}>
@@ -175,12 +199,6 @@ function Onboarding() {
     </Flex>
   );
 }
-
-// const getPropertyFromRef = (ref: string) => {
-//   const regex = /[^/]+$/;
-//   const match = ref.match(regex);
-//   return match ? match[0] : '';
-// }
 
 function getPropertyFromRef(str: string) {
   // Split the string by '/'
