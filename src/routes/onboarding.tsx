@@ -14,11 +14,11 @@ import {
 import React, {useCallback, useEffect, useState} from "react";
 import {onboardingForm, schema} from "../data/mock-onboarding-form";
 import {OnboardingFormElement, OnboardingForm, OnboardingFormStep, FormOption} from "../types/onboarding";
-import {ErrorMessage, Field, FieldProps, Form, Formik, useFormikContext} from "formik";
-import Ajv, { JSONSchemaType } from "ajv";
+import {ErrorMessage, Field, FieldProps, Form, Formik} from "formik";
+import Ajv, {DefinedError, JSONSchemaType} from "ajv";
 import UiFormTable from "../components/UiFormTable";
 import UiDropdownSelect from "../components/UiDropdownSelect";
-import {get, merge} from 'lodash'
+import {merge} from 'lodash'
 import JSONPretty from 'react-json-pretty';
 
 interface FormData {
@@ -31,7 +31,6 @@ function Onboarding() {
   const [form, setForm] = useState<OnboardingForm | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [didSubmitForm, setDidSubmitForm] = useState<boolean>(false);
-  const [ajvInstance, setAjvInstance] = useState(new Ajv());
   const [submittedData, setSubmittedData] = useState<FormData>({});
   const [generatedSchema, setGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
 
@@ -47,6 +46,8 @@ function Onboarding() {
       if (!schema) return acc;
       const { required, ...restSchema } = schema;
       const propertyName = getPropertyFromRef(ref);
+      const splitPropertyName = propertyName.split('.'); // ['zipcode'], ['address', 'line1']
+
       const newProperties = { ...acc.properties, [propertyName]: restSchema };
       const newRequired = [...acc.required];
       if (required) {
@@ -54,9 +55,12 @@ function Onboarding() {
       }
       return { properties: newProperties, required: newRequired };
     }, { properties: {}, required: [] } as { properties: Record<string, any>; required: string[] })
-
-    setGeneratedSchema(it => merge(it, schemaToAdd));
-
+    // @ts-ignore
+    setGeneratedSchema(it => ({
+      ...it,
+      properties: merge((it.properties ?? {}), schemaToAdd.properties),
+      required: [...(it.required ?? []), ...schemaToAdd.required]
+    }));
   }, [currentStepIndex, form]);
 
   useEffect(() => {
@@ -66,12 +70,6 @@ function Onboarding() {
     const fetchedSchema = schema;
     setForm({ form: fetchedForm, schema: fetchedSchema });
   }, []);
-
-  useEffect(() => {
-    if (!form?.schema) return;
-    const newAjv = ajv.addSchema(form.schema);
-    setAjvInstance(newAjv);
-  }, [form?.schema])
 
   const submitForm = (values: FormData) => {
     // make API call;
@@ -95,7 +93,7 @@ function Onboarding() {
       const fieldName = getPropertyFromRef(nextStep.rule.ref);
       const { schema } = nextStep.rule;
       // @ts-ignore
-      const valid = ajvInstance.validate(schema, values[fieldName]);
+      const valid = ajv.validate(schema, values[fieldName]);
       if (valid) break;
       stepIndexToGoTo++;
     }
@@ -104,7 +102,7 @@ function Onboarding() {
       return submitForm(values);
     }
     setCurrentStepIndex(stepIndexToGoTo);
-  }, [ajvInstance, form, currentStepIndex])
+  }, [form, currentStepIndex])
 
   const handleBack = useCallback((values: FormData) => {
     if (!form) return;
@@ -117,7 +115,7 @@ function Onboarding() {
       if (!prevStep.rule) break;
       const fieldName = getPropertyFromRef(prevStep.rule.ref);
       const { schema } = prevStep.rule;
-      const valid = ajvInstance.validate(schema, values[fieldName])
+      const valid = ajv.validate(schema, values[fieldName])
       if (valid) break;
       stepIndexToGoTo--;
     }
@@ -126,7 +124,7 @@ function Onboarding() {
       return setCurrentStepIndex(0);
     }
     setCurrentStepIndex(stepIndexToGoTo);
-  }, [ajvInstance, form, currentStepIndex]);
+  }, [form, currentStepIndex]);
 
   const handleOnSubmit = (values: any) => {
     console.log('Submitting with values', values);
@@ -135,29 +133,32 @@ function Onboarding() {
   const validateCurrentStep = useCallback((values: FormData) => {
     if (!form) return {};
     const errors = {};
-    const stepElements = form.form.steps[currentStepIndex].elements.map(e => e.ref).filter(ref => !!ref);
-    stepElements.forEach(ref => {
-      const schemaUri = `${form.schema.$id}${ref}`;
-      const validate = ajvInstance.getSchema(schemaUri);
-      if (!validate) {
-        console.log('Could not find schema for ', schemaUri);
-        return;
+    const isValid = ajv.validate(generatedSchema, values);
+    if (!isValid && ajv.errors?.length) {
+      for (const err of ajv.errors as DefinedError[]) {
+        switch(err.keyword) {
+          case 'required':
+            const { missingProperty } = err.params;
+            // @ts-ignore
+            errors[missingProperty] = err.message ?? 'This field is invalid';
+            break;
+          default:
+            const { instancePath, message } = err;
+            // @ts-ignore
+            errors[instancePath] = message ?? 'This field is invalid';
+            break;
+        }
       }
-      const valid = validate(get(values, getPropertyFromRef(ref)));
-      if (!valid) {
-        // @ts-ignore
-        errors[getPropertyFromRef(ref)] = 'This field is invalid';
-      }
-    });
+    }
     return errors;
-  }, [ajvInstance, currentStepIndex, form])
+  }, [form, generatedSchema])
 
   const validate = (values: FormData) => {
     if (!form) return {};
     // TODO - on the last step, validate the entire form
     return validateCurrentStep(values);
   }
-  console.log('NEW SCHEMA', generatedSchema);
+
   return (
     <Flex height={'100vh'} direction={'column'}>
       <Box p={8}>

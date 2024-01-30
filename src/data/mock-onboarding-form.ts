@@ -63,7 +63,7 @@ export const schema: OnboardingForm['schema'] = {
       type: 'string',
     }
   },
-  required: ['full_name', 'birthday', 'application_type'],
+  required: ['full_name', 'birthday', 'application_type', 'address'],
   allOf: [{
     if: {
       properties: {
@@ -694,3 +694,14 @@ export const onboardingForm: OnboardingForm['form'] = {
     rule: null,
   },],
 };
+
+// const schema = {
+//   properties: {
+//     name: { type: 'string' },
+//     address: {
+//       properties: { line1: { type: "string" }, line2: { type: 'string' } },
+//       required: ['line1']
+//     }
+//   },
+//   required: ['name', 'address']
+// }
