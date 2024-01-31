@@ -7,19 +7,25 @@ import {
   FormLabel,
   Heading,
   Input,
+  RadioProps,
   Spinner,
-  Text, VStack,
-  useRadio, useRadioGroup, RadioProps,
+  Text,
+  useRadio,
+  useRadioGroup,
+  VStack,
 } from "@chakra-ui/react";
 import React, {useCallback, useEffect, useState} from "react";
 import {onboardingForm, schema} from "../data/mock-onboarding-form";
-import {OnboardingFormElement, OnboardingForm, OnboardingFormStep, FormOption} from "../types/onboarding";
-import {ErrorMessage, Field, FieldProps, Form, Formik, useFormikContext} from "formik";
-import Ajv from "ajv";
+import {OnboardingForm, OnboardingFormElement, OnboardingFormStep, OnboardingStepRule} from "../types/onboarding";
+import {ErrorMessage, Field, FieldProps, Form, Formik} from "formik";
+import Ajv, {DefinedError, JSONSchemaType} from "ajv";
 import UiFormTable from "../components/UiFormTable";
 import UiDropdownSelect from "../components/UiDropdownSelect";
-import {get} from 'lodash'
 import JSONPretty from 'react-json-pretty';
+import {getPropertyFromRef, recursivelyAppendToSchema} from "../utils";
+import JsonPrettyModal from "../components/JsonPrettyModal";
+import AddFormStepModal from "../components/AddFormStepModal";
+import {get} from "lodash";
 
 interface FormData {
   [key: string]: string | number | string[] | undefined;
@@ -31,8 +37,81 @@ function Onboarding() {
   const [form, setForm] = useState<OnboardingForm | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [didSubmitForm, setDidSubmitForm] = useState<boolean>(false);
-  const [ajvInstance, setAjvInstance] = useState(new Ajv());
   const [submittedData, setSubmittedData] = useState<FormData>({});
+  const [newGeneratedSchema, setNewGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
+  const [stateFormValues, setStateFormValues] = useState<FormData>({});
+  const [extraStepValues, setExtraStepValues] = useState<{ state: string; title: string; message: string } | null>(null)
+
+  useEffect(() => {
+    if (!extraStepValues) {
+      return;
+    }
+    // Construct a new step, conditionally shown on the state selected.
+    const rule: OnboardingStepRule = {
+      ref: '#/properties/address/properties/state',
+      schema: {
+        const: extraStepValues.state,
+      },
+      __typename: 'UiFormRule',
+    }
+    const step: OnboardingFormStep = {
+      step_id: `${extraStepValues.state}_unavailable_disclaimer`,
+      title: extraStepValues.title,
+      elements: [{
+        ref: '',
+        required: false,
+        schema: null,
+        __typename: 'UiFormInterstitial',
+        label: extraStepValues.message
+      }],
+      rule,
+    }
+    // place after the address step
+
+    // @ts-ignore
+    setForm(prevState => {
+      if (!prevState) return prevState;
+      const indexOf = prevState.form.steps.findIndex(it => it.step_id === 'address');
+      if (indexOf <= 0) { console.log('could not find step'); return }
+      const newSteps = prevState.form.steps.slice();
+      newSteps.splice(indexOf + 1, 0, step);
+      return {
+        ...prevState,
+        form: {
+          ...prevState?.form,
+          steps: newSteps,
+        }
+      }
+    })
+  }, [extraStepValues])
+
+  useEffect(() => {
+    if (!form) return;
+
+    // iterate through all steps until current
+    // constructing the form
+    let newSchema = {};
+    for (let i = 0; i<=currentStepIndex; i++) {
+      const formStep = form.form.steps[i];
+      // make sure that the step will be shown based on the rule
+      const { rule } = formStep;
+      if (rule) {
+        const fieldName = getPropertyFromRef(rule.ref);
+        const { schema } = rule;
+        // @ts-ignore
+        const valid = ajv.validate(schema, stateFormValues[fieldName]);
+        if (!valid) continue; // if a step shouldn't be shown based on the form state, don't include it in the schema creation
+      }
+      const formStepSchemas = formStep.elements.map(it => { const { ref, required, schema } = it; return { ref, required, schema } });
+      formStepSchemas.forEach(it => {
+        if (!it.ref) return;
+        const fullRef = it.ref.substring(2);
+        newSchema = recursivelyAppendToSchema(fullRef, it.schema, it.required, 0, newSchema);
+      });
+    }
+    // @ts-ignore
+    setNewGeneratedSchema(newSchema);
+  }, [currentStepIndex, form, stateFormValues]);
 
   useEffect(() => {
     // pretend that an API call happens here
@@ -42,12 +121,6 @@ function Onboarding() {
     setForm({ form: fetchedForm, schema: fetchedSchema });
   }, []);
 
-  useEffect(() => {
-    if (!form?.schema) return;
-    const newAjv = ajv.addSchema(form.schema);
-    setAjvInstance(newAjv);
-  }, [form?.schema])
-
   const submitForm = (values: FormData) => {
     // make API call;
     setSubmittedData(values);
@@ -55,6 +128,7 @@ function Onboarding() {
   }
 
   const handleNext = useCallback((values: FormData) => {
+    setStateFormValues(values);
     if (!form) return;
     const { steps } = form.form;
     let stepIndexToGoTo = currentStepIndex + 1;
@@ -69,8 +143,10 @@ function Onboarding() {
       // Validate the rule of the next step in the list
       const fieldName = getPropertyFromRef(nextStep.rule.ref);
       const { schema } = nextStep.rule;
+      console.log('FIELD NAME', fieldName, schema, get(values, fieldName));
       // @ts-ignore
-      const valid = ajvInstance.validate(schema, values[fieldName]);
+      const valid = ajv.validate(schema, get(values, fieldName));
+      console.log('VALID', valid);
       if (valid) break;
       stepIndexToGoTo++;
     }
@@ -79,7 +155,7 @@ function Onboarding() {
       return submitForm(values);
     }
     setCurrentStepIndex(stepIndexToGoTo);
-  }, [ajvInstance, form, currentStepIndex])
+  }, [form, currentStepIndex])
 
   const handleBack = useCallback((values: FormData) => {
     if (!form) return;
@@ -92,7 +168,7 @@ function Onboarding() {
       if (!prevStep.rule) break;
       const fieldName = getPropertyFromRef(prevStep.rule.ref);
       const { schema } = prevStep.rule;
-      const valid = ajvInstance.validate(schema, values[fieldName])
+      const valid = ajv.validate(schema, get(values, fieldName))
       if (valid) break;
       stepIndexToGoTo--;
     }
@@ -101,7 +177,7 @@ function Onboarding() {
       return setCurrentStepIndex(0);
     }
     setCurrentStepIndex(stepIndexToGoTo);
-  }, [ajvInstance, form, currentStepIndex]);
+  }, [form, currentStepIndex]);
 
   const handleOnSubmit = (values: any) => {
     console.log('Submitting with values', values);
@@ -110,23 +186,25 @@ function Onboarding() {
   const validateCurrentStep = useCallback((values: FormData) => {
     if (!form) return {};
     const errors = {};
-    const stepElements = form.form.steps[currentStepIndex].elements.map(e => e.ref).filter(ref => !!ref);
-    stepElements.forEach(ref => {
-      const schemaUri = `${form.schema.$id}${ref}`;
-      const validate = ajvInstance.getSchema(schemaUri);
-      if (!validate) {
-        console.log('Could not find schema for ', schemaUri);
-        return;
+    const isValid = ajv.validate(newGeneratedSchema, values);
+    if (!isValid && ajv.errors?.length) {
+      for (const err of ajv.errors as DefinedError[]) {
+        switch(err.keyword) {
+          case 'required':
+            const { missingProperty } = err.params;
+            // @ts-ignore
+            errors[missingProperty] = err.message ?? 'This field is invalid';
+            break;
+          default:
+            const { instancePath, message } = err;
+            // @ts-ignore
+            errors[instancePath.replaceAll('/', '')] = message ?? 'This field is invalid';
+            break;
+        }
       }
-      console.log("attempting to validate", values[getPropertyFromRef(ref)])
-      const valid = validate(get(values, getPropertyFromRef(ref)));
-      if (!valid) {
-        // @ts-ignore
-        errors[getPropertyFromRef(ref)] = 'This field is invalid';
-      }
-    });
+    }
     return errors;
-  }, [ajvInstance, currentStepIndex, form])
+  }, [form, newGeneratedSchema])
 
   const validate = (values: FormData) => {
     if (!form) return {};
@@ -147,68 +225,47 @@ function Onboarding() {
         </Box>
       ) : (
       <Box height={'100%'} width={'100%'} p={8}>
+        <Flex direction={'row'}>
         {form ? (
-          <Formik initialValues={{}} onSubmit={handleOnSubmit} validate={validate}>
-            {({ values, errors }) => {
-              return (
-                <Form>
-                  <Box height={'100%'} w={'800px'}>
-                    <FormStep step={form.form.steps[currentStepIndex]} />
-                    <Flex direction={'row'} justifyContent={'space-between'} pt={20}>
-                      <Button onClick={() => handleBack(values)} isDisabled={currentStepIndex === 0}>Back</Button>
-                      <Button
-                        onClick={() => handleNext(values)}
-                        isDisabled={Object.keys(validateCurrentStep(values)).length !== 0}
-                        colorScheme="blue"
-                        _disabled={{ bg: 'gray.400', cursor: 'not-allowed' }}>
-                         Next
-                      </Button>
-                    </Flex>
-                  </Box>
-                </Form>
-              )
-            }}
-          </Formik>
+          <Flex direction={'column'} flex={1}>
+            <Formik initialValues={{}} onSubmit={handleOnSubmit} validate={validate}>
+              {({ values, errors }) => {
+                return (
+                  <Form>
+                    <Box height={'100%'} w={'800px'}>
+                      <FormStep step={form.form.steps[currentStepIndex]} />
+                      <Flex direction={'row'} justifyContent={'space-between'} pt={20}>
+                        <Button onClick={() => handleBack(values)} isDisabled={currentStepIndex === 0}>Back</Button>
+                        <Button
+                          onClick={() => handleNext(values)}
+                          isDisabled={Object.keys(validateCurrentStep(values)).length !== 0}
+                          colorScheme="blue"
+                          _disabled={{ bg: 'gray.400', cursor: 'not-allowed' }}>
+                           Next
+                        </Button>
+                      </Flex>
+                    </Box>
+                  </Form>
+                )
+              }}
+            </Formik>
+          </Flex>
+
         ) : (<Loading />)}
+          <Flex flex={1} alignItems={'center'} direction={'column'}>
+            <VStack spacing={'24px'}>
+              <JsonPrettyModal data={stateFormValues} buttonTitle={'See Form Values'} />
+              <JsonPrettyModal data={newGeneratedSchema} buttonTitle={'See JSON validation schema'} />
+              <JsonPrettyModal data={form?.form.steps[currentStepIndex] ?? {}} buttonTitle={'See current form step definition'} />
+              <AddFormStepModal buttonTitle={'Add a form step'} onSubmit={(val) => { setExtraStepValues(val) }} didSubmit={!!extraStepValues} />
+            </VStack>
+          </Flex>
+        </Flex>
       </Box>
       )}
     </Flex>
   );
 }
-
-// const getPropertyFromRef = (ref: string) => {
-//   const regex = /[^/]+$/;
-//   const match = ref.match(regex);
-//   return match ? match[0] : '';
-// }
-
-function getPropertyFromRef(str: string) {
-  // Split the string by '/'
-  const parts = str.split("/");
-
-  // Filter out empty strings and the '#' prefix
-  const filteredParts = parts.filter(part => part !== "" && part !== "#");
-
-  // Map each part to the appropriate property name
-  const transformedParts = filteredParts.map((part, index) => {
-    // For the first part, remove the 'properties' prefix
-    if (index === 0 && part === "properties") {
-      return "";
-    }
-    // For subsequent parts, convert 'properties' to '.'
-    else if (part === "properties") {
-      return ".";
-    }
-    // Otherwise, return the part as is
-    else {
-      return part;
-    }
-  });
-
-  // Join the transformed parts with '.'
-  return transformedParts.join("");
-}
-
 
 type FormStepProps = {
   step: OnboardingFormStep;
@@ -360,10 +417,6 @@ const CustomRadioButton = (props: RadioProps) => {
 }
 
 const SubmitSuccessfulComponent = ({ data }: { data: FormData }) => {
-  const submittedDataFormatted: FormOption[] = Object.keys(data).map(key => {
-    return { title: key, value: `${data[key] ?? ''}` , __typename: 'UiFormDataComponentOptions' }
-  });
-
   return (
     <Box w={'100%'}>
       <Flex direction={'row'}>
@@ -374,11 +427,8 @@ const SubmitSuccessfulComponent = ({ data }: { data: FormData }) => {
         <Flex flex={1} direction={'column'}>
           <Heading size={'md'} pb={'4'}>Your submitted data:</Heading>
           <JSONPretty data={data} />
-          {/*<Text>{JSON.stringify(data, null, 2)}</Text>*/}
-          {/*<UiFormTable options={submittedDataFormatted} />*/}
         </Flex>
       </Flex>
-
     </Box>
   )
 }

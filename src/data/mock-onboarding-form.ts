@@ -63,7 +63,28 @@ export const schema: OnboardingForm['schema'] = {
       type: 'string',
     }
   },
-  required: ['full_name', 'birthday', 'application_type'],
+  required: ['full_name', 'birthday', 'application_type', 'address'],
+  allOf: [{
+    if: {
+      properties: {
+        application_type: { const: 'pharmacy_tech' }
+      },
+      required: ['application_type']
+    },
+    then: {
+      required: ['pharmacy_tech_availability']
+    }
+  }, {
+    if: {
+      properties: {
+        application_type: { const: 'medical_assistant'},
+      },
+      required: ['application_type']
+    },
+    then: {
+      required: ['medical_assistant_availability']
+    }
+  }]
 };
 
 export const onboardingForm: OnboardingForm['form'] = {
@@ -72,6 +93,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: 'Welcome to Stepful!',
     elements: [{
       ref: '',
+      schema: null,
+      required: false,
       __typename: 'UiFormInterstitial',
       label: "We're excited to have you here. Begin by starting your application to apply to one of our online programs."
     }]
@@ -81,6 +104,10 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: "Please select which program you'd like to apply for. You can only be enrolled in one program at a time.",
     elements: [{
       ref: '#/properties/application_type',
+      required: true,
+      schema: {
+        enum: ['pharmacy_tech', 'medical_assistant']
+      },
       __typename: 'UiFormSelectComponent',
       multiple: false,
       options: [{
@@ -100,6 +127,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: 'Great! Stepful offers a top-tier medical assistant training program that can get you a degree in just 4 weeks.',
     subtitle: 'Here are the facts about becoming a medical assistant: ',
     elements: [{
+      schema: null,
+      required: false,
       ref: '',
       __typename: 'UiFormTable',
       options: [{
@@ -141,6 +170,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'Here are the facts about becoming a pharmacy technician: ',
     elements: [{
       ref: '',
+      required: false,
+      schema: null,
       __typename: 'UiFormTable',
       options: [{
         title: 'Description',
@@ -181,6 +212,10 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'These are the available dates for our Medical Assistant program. Dates vary across programs. Please select all that apply.',
     elements: [{
       ref: '#/properties/medical_assistant_availability',
+      required: true,
+      schema: {
+        type: 'string',
+      },
       __typename: 'UiDropdownSelectComponent',
       multiple: true,
       options: [{
@@ -206,6 +241,10 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'These are the available dates for our Pharmacy Technician program. Dates vary across programs. Please select all that apply.',
     elements: [{
       ref: '#/properties/pharmacy_tech_availability',
+      required: true, // will be conditionally required based on the rule
+      schema: {
+        type: 'string',
+      },
       __typename: 'UiDropdownSelectComponent',
       multiple: true,
       options: [{
@@ -230,6 +269,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: "Thanks!",
     elements: [{
       ref: '',
+      required: false,
+      schema: null,
       __typename: 'UiFormInterstitial',
       label: "Now, let's collect some personal info to complete the onboarding process"
     }]
@@ -238,6 +279,11 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: 'What is your full name?',
     elements: [{
       ref: '#/properties/full_name',
+      required: true,
+      schema: {
+        type: 'string',
+        minLength: 1,
+      },
       __typename: 'UiFormInputComponent',
       label: 'Full Name',
     }],
@@ -246,6 +292,11 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: 'When is your birthday?',
     elements: [{
       ref: '#/properties/birthday',
+      required: true,
+      schema: {
+        type: 'string',
+        pattern: '^(0[1-9]|1[012])/(0[1-9]|[12][0-9]|3[01])/(19|20)[0-9]{2}$',
+      },
       __typename: 'UiFormInputComponent',
       label: 'Date of Birth',
       placeholder: 'MM/DD/YYYY',
@@ -257,6 +308,11 @@ export const onboardingForm: OnboardingForm['form'] = {
     elements: [
       {
         ref: '#/properties/address/properties/line1',
+        required: true,
+        schema: {
+          type: 'string',
+          minLength: 1, // ideally we'd validate the address
+        },
         __typename: 'UiFormInputComponent',
         label: 'Street Address',
         placeholder: 'Address',
@@ -264,6 +320,10 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/line2',
+        required: false,
+        schema: {
+          type: 'string',
+        },
         __typename: 'UiFormInputComponent',
         label: 'Apt., Suite, or Building #',
         placeholder: 'Optional',
@@ -271,6 +331,11 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/city',
+        required: true,
+
+        schema: {
+          type: 'string',
+        },
         __typename: 'UiFormInputComponent',
         label: 'City',
         placeholder: 'City',
@@ -278,6 +343,10 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/state',
+        required: true,
+        schema: {
+          type: 'string' // ideally an enum but make it easier for now,
+        },
         __typename: 'UiDropdownSelectComponent',
         label: 'State',
         options: [
@@ -616,6 +685,11 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/zipCode',
+        required: true,
+        schema: {
+          type: 'string',
+          pattern: "[0-9]{5}(-[0-9]{4})?", // Would be a cool exercise to change this depending on the country (can try U.S. and Canada)
+        },
         __typename: 'UiFormInputComponent',
         label: 'Zip Code',
         placeholder: 'Zip Code',
@@ -623,5 +697,15 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
     ],
     rule: null,
-  },],
+  },{
+    step_id: 'confirm_data_interstitial',
+    title: "Ready to submit?",
+    elements: [{
+      ref: '',
+      required: false,
+      schema: null,
+      __typename: 'UiFormInterstitial',
+      label: "Please confirm your data and then click the Next button to submit!"
+    }]
+  }],
 };

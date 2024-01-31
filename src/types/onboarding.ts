@@ -5,7 +5,19 @@ export type FormOption = {
   value: string,
   __typename: 'UiFormDataComponentOptions',
 }
-export type OnboardingFormElement = { ref: string; __typename: UiType; label?: string; placeholder?: string; type?: string; multiple?: boolean; options?: FormOption[] }
+export type OnboardingFormElement = {
+  ref: string;
+  __typename: UiType;
+  label?: string;
+  placeholder?: string;
+  type?: string;
+  multiple?: boolean;
+  options?: FormOption[];
+  required: boolean,
+  schema: {
+    [key: string]: any;
+  } | null
+}
 
 export type OnboardingStepRule = {
   ref: string,
