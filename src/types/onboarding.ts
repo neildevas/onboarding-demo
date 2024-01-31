@@ -13,8 +13,8 @@ export type OnboardingFormElement = {
   type?: string;
   multiple?: boolean;
   options?: FormOption[];
+  required: boolean,
   schema: {
-    required: boolean,
     [key: string]: any;
   } | null
 }

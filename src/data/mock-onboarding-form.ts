@@ -94,6 +94,7 @@ export const onboardingForm: OnboardingForm['form'] = {
     elements: [{
       ref: '',
       schema: null,
+      required: false,
       __typename: 'UiFormInterstitial',
       label: "We're excited to have you here. Begin by starting your application to apply to one of our online programs."
     }]
@@ -103,8 +104,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: "Please select which program you'd like to apply for. You can only be enrolled in one program at a time.",
     elements: [{
       ref: '#/properties/application_type',
+      required: true,
       schema: {
-        required: true,
         enum: ['pharmacy_tech', 'medical_assistant']
       },
       __typename: 'UiFormSelectComponent',
@@ -127,6 +128,7 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'Here are the facts about becoming a medical assistant: ',
     elements: [{
       schema: null,
+      required: false,
       ref: '',
       __typename: 'UiFormTable',
       options: [{
@@ -168,6 +170,7 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'Here are the facts about becoming a pharmacy technician: ',
     elements: [{
       ref: '',
+      required: false,
       schema: null,
       __typename: 'UiFormTable',
       options: [{
@@ -209,8 +212,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'These are the available dates for our Medical Assistant program. Dates vary across programs. Please select all that apply.',
     elements: [{
       ref: '#/properties/medical_assistant_availability',
+      required: true,
       schema: {
-        required: true, // conditionally required, rule will be taken into account
         type: 'string',
       },
       __typename: 'UiDropdownSelectComponent',
@@ -238,8 +241,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     subtitle: 'These are the available dates for our Pharmacy Technician program. Dates vary across programs. Please select all that apply.',
     elements: [{
       ref: '#/properties/pharmacy_tech_availability',
+      required: true, // will be conditionally required based on the rule
       schema: {
-        required: true, // will be conditionally required based on the rule
         type: 'string',
       },
       __typename: 'UiDropdownSelectComponent',
@@ -266,6 +269,7 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: "Thanks!",
     elements: [{
       ref: '',
+      required: false,
       schema: null,
       __typename: 'UiFormInterstitial',
       label: "Now, let's collect some personal info to complete the onboarding process"
@@ -275,8 +279,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: 'What is your full name?',
     elements: [{
       ref: '#/properties/full_name',
+      required: true,
       schema: {
-        required: true,
         type: 'string',
         minLength: 1,
       },
@@ -288,8 +292,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     title: 'When is your birthday?',
     elements: [{
       ref: '#/properties/birthday',
+      required: true,
       schema: {
-        required: true,
         type: 'string',
         pattern: '^(0[1-9]|1[012])/(0[1-9]|[12][0-9]|3[01])/(19|20)[0-9]{2}$',
       },
@@ -304,8 +308,8 @@ export const onboardingForm: OnboardingForm['form'] = {
     elements: [
       {
         ref: '#/properties/address/properties/line1',
+        required: true,
         schema: {
-          required: true,
           type: 'string',
           minLength: 1, // ideally we'd validate the address
         },
@@ -316,8 +320,8 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/line2',
+        required: false,
         schema: {
-          required: false,
           type: 'string',
         },
         __typename: 'UiFormInputComponent',
@@ -327,8 +331,9 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/city',
+        required: true,
+
         schema: {
-          required: true,
           type: 'string',
         },
         __typename: 'UiFormInputComponent',
@@ -338,8 +343,8 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/state',
+        required: true,
         schema: {
-          required: true,
           type: 'string' // ideally an enum but make it easier for now,
         },
         __typename: 'UiDropdownSelectComponent',
@@ -680,8 +685,8 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
       {
         ref: '#/properties/address/properties/zipCode',
+        required: true,
         schema: {
-          required: true,
           type: 'string',
           pattern: "[0-9]{5}(-[0-9]{4})?", // Would be a cool exercise to change this depending on the country (can try U.S. and Canada)
         },
@@ -694,14 +699,3 @@ export const onboardingForm: OnboardingForm['form'] = {
     rule: null,
   },],
 };
-
-// const schema = {
-//   properties: {
-//     name: { type: 'string' },
-//     address: {
-//       properties: { line1: { type: "string" }, line2: { type: 'string' } },
-//       required: ['line1']
-//     }
-//   },
-//   required: ['name', 'address']
-// }
