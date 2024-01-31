@@ -1,4 +1,4 @@
-import { uniq, get } from 'lodash';
+import {get, uniq} from 'lodash';
 
 const toSpliced = (arr: string[], startIndex: number, deleteCount: number, ...items: string[]) => {
   // Just doing a copy to avoid mutating an array when spicing
@@ -13,7 +13,7 @@ export function recursivelyAppendToSchema(
   required: boolean,
   refIndex: number,
   constructedSchema: any,
-) {
+): { properties: any; required: any } {
   const splitRef = fullRef.split("/");
   const refKey = splitRef[refIndex];
   if (refIndex === splitRef.length - 1) {
@@ -49,4 +49,31 @@ export function recursivelyAppendToSchema(
       required: uniq(get(constructedSchema, constructedRequiredKeyUpToIndex, []).concat(required ? refKey : [])),
     };
   }
+}
+
+export function getPropertyFromRef(str: string) {
+  // Split the string by '/'
+  const parts = str.split("/");
+
+  // Filter out empty strings and the '#' prefix
+  const filteredParts = parts.filter(part => part !== "" && part !== "#");
+
+  // Map each part to the appropriate property name
+  const transformedParts = filteredParts.map((part, index) => {
+    // For the first part, remove the 'properties' prefix
+    if (index === 0 && part === "properties") {
+      return "";
+    }
+    // For subsequent parts, convert 'properties' to '.'
+    else if (part === "properties") {
+      return ".";
+    }
+    // Otherwise, return the part as is
+    else {
+      return part;
+    }
+  });
+
+  // Join the transformed parts with '.'
+  return transformedParts.join("");
 }

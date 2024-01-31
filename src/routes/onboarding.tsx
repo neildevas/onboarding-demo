@@ -7,19 +7,23 @@ import {
   FormLabel,
   Heading,
   Input,
+  RadioProps,
   Spinner,
-  Text, VStack,
-  useRadio, useRadioGroup, RadioProps,
+  Text,
+  useRadio,
+  useRadioGroup,
+  VStack,
 } from "@chakra-ui/react";
 import React, {useCallback, useEffect, useState} from "react";
 import {onboardingForm, schema} from "../data/mock-onboarding-form";
-import {OnboardingFormElement, OnboardingForm, OnboardingFormStep, FormOption} from "../types/onboarding";
+import {FormOption, OnboardingForm, OnboardingFormElement, OnboardingFormStep} from "../types/onboarding";
 import {ErrorMessage, Field, FieldProps, Form, Formik} from "formik";
 import Ajv, {DefinedError, JSONSchemaType} from "ajv";
 import UiFormTable from "../components/UiFormTable";
 import UiDropdownSelect from "../components/UiDropdownSelect";
 import {merge} from 'lodash'
 import JSONPretty from 'react-json-pretty';
+import {getPropertyFromRef, recursivelyAppendToSchema} from "../utils";
 
 interface FormData {
   [key: string]: string | number | string[] | undefined;
@@ -32,35 +36,28 @@ function Onboarding() {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [didSubmitForm, setDidSubmitForm] = useState<boolean>(false);
   const [submittedData, setSubmittedData] = useState<FormData>({});
-  const [generatedSchema, setGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
+  const [newGeneratedSchema, setNewGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
+
+  useEffect(() => {
+    console.log('new generaetd schema', newGeneratedSchema);
+  }, [newGeneratedSchema]);
 
   useEffect(() => {
     if (!form) return;
-    // On each page, let's build up a new schema dynamically:
-    // 1. Extract all schemas from every element.
     const formStep = form.form.steps[currentStepIndex];
-    const formStepSchemas = formStep.elements.map(it => { const { ref, schema } = it; return { ref, schema } });
-    const schemaToAdd = formStepSchemas.reduce((acc, cur) => {
-      const { ref, schema } = cur;
-      // If no schema, we don't need to validate the step against the JSON schema
-      if (!schema) return acc;
-      const { required, ...restSchema } = schema;
-      const propertyName = getPropertyFromRef(ref);
-      const splitPropertyName = propertyName.split('.'); // ['zipcode'], ['address', 'line1']
-
-      const newProperties = { ...acc.properties, [propertyName]: restSchema };
-      const newRequired = [...acc.required];
-      if (required) {
-        newRequired.push(propertyName);
-      }
-      return { properties: newProperties, required: newRequired };
-    }, { properties: {}, required: [] } as { properties: Record<string, any>; required: string[] })
-    // @ts-ignore
-    setGeneratedSchema(it => ({
-      ...it,
-      properties: merge((it.properties ?? {}), schemaToAdd.properties),
-      required: [...(it.required ?? []), ...schemaToAdd.required]
-    }));
+    const formStepSchemas = formStep.elements.map(it => { const { ref, required, schema } = it; return { ref, required, schema } });
+    setNewGeneratedSchema(curSchema => {
+      let newSchema = { ...curSchema };
+      formStepSchemas.forEach(it => {
+        if (!it.ref) return;
+        // remove initial "#/"
+        const fullRef = it.ref.substring(2);
+        // @ts-ignore
+        newSchema = recursivelyAppendToSchema(fullRef, it.schema, it.required, 0, newSchema);
+        console.log('genereated a new schema', newSchema);
+      });
+      return newSchema;
+    });
   }, [currentStepIndex, form]);
 
   useEffect(() => {
@@ -133,7 +130,7 @@ function Onboarding() {
   const validateCurrentStep = useCallback((values: FormData) => {
     if (!form) return {};
     const errors = {};
-    const isValid = ajv.validate(generatedSchema, values);
+    const isValid = ajv.validate(newGeneratedSchema, values);
     if (!isValid && ajv.errors?.length) {
       for (const err of ajv.errors as DefinedError[]) {
         switch(err.keyword) {
@@ -151,7 +148,7 @@ function Onboarding() {
       }
     }
     return errors;
-  }, [form, generatedSchema])
+  }, [form, newGeneratedSchema])
 
   const validate = (values: FormData) => {
     if (!form) return {};
@@ -199,33 +196,6 @@ function Onboarding() {
       )}
     </Flex>
   );
-}
-
-function getPropertyFromRef(str: string) {
-  // Split the string by '/'
-  const parts = str.split("/");
-
-  // Filter out empty strings and the '#' prefix
-  const filteredParts = parts.filter(part => part !== "" && part !== "#");
-
-  // Map each part to the appropriate property name
-  const transformedParts = filteredParts.map((part, index) => {
-    // For the first part, remove the 'properties' prefix
-    if (index === 0 && part === "properties") {
-      return "";
-    }
-    // For subsequent parts, convert 'properties' to '.'
-    else if (part === "properties") {
-      return ".";
-    }
-    // Otherwise, return the part as is
-    else {
-      return part;
-    }
-  });
-
-  // Join the transformed parts with '.'
-  return transformedParts.join("");
 }
 
 
@@ -379,10 +349,6 @@ const CustomRadioButton = (props: RadioProps) => {
 }
 
 const SubmitSuccessfulComponent = ({ data }: { data: FormData }) => {
-  const submittedDataFormatted: FormOption[] = Object.keys(data).map(key => {
-    return { title: key, value: `${data[key] ?? ''}` , __typename: 'UiFormDataComponentOptions' }
-  });
-
   return (
     <Box w={'100%'}>
       <Flex direction={'row'}>
@@ -393,8 +359,6 @@ const SubmitSuccessfulComponent = ({ data }: { data: FormData }) => {
         <Flex flex={1} direction={'column'}>
           <Heading size={'md'} pb={'4'}>Your submitted data:</Heading>
           <JSONPretty data={data} />
-          {/*<Text>{JSON.stringify(data, null, 2)}</Text>*/}
-          {/*<UiFormTable options={submittedDataFormatted} />*/}
         </Flex>
       </Flex>
 
