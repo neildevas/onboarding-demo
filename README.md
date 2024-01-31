@@ -9,6 +9,13 @@ Some possible use cases for this might be:
 
 Check out `src/data/mock-onboarding-form.ts` to see how the form steps and schema are set up.
 
+## Demo
+Play around with the form to test different paths. First check out the Pharmacy Technician path, and then the Medical Assistant one, to see how the form varies when different options are selected. 
+
+On each page, use the buttons on the right to check out some of the JSON that is powering the form.
+
+Once you get to the Enter Address part of the form, press the "Add a form step" button at the right, to add a conditional step that will only show if you choose your state of residency to be `Washington` or `South Carolina`. In practice, this is how easy it would be for a developer (or anyone) to add a new step to the form.
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
