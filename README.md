@@ -1,3 +1,5 @@
+# Overview
+
 I created this demo project to showcase something similar to a project I worked on at [Titan](https://titan.com). It is a JSON powered form component. The form iterates through an array of steps that can be defined in your app or on a server, and it validates form values using a JSON document structured according to the [JSON Schema standard](https://json-schema.org). This implementation separates the form's business logic from client-side rendering logic, which allows developers to quickly create new forms or edit existing ones, without needing to modify the front-end code; simply add a new step to your array, or update the validation logic in your JSON document. Similarly, new form components can be created, or existing ones edited, without breaking existing functionality. 
 
 Some possible use cases for this might be:
@@ -5,7 +7,6 @@ Some possible use cases for this might be:
 - Seamlessly A/B test form copy, questions, question order, etc.
 - Easily create many different "paths" within a single form by utilizing custom branching logic that is supported by JSON schema - `if`, `then`, `else`, `allOf`, `anyOf`, and more.
 
-And now, back to your standard CRA programming ↓
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
