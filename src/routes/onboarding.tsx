@@ -37,6 +37,7 @@ function Onboarding() {
   const [didSubmitForm, setDidSubmitForm] = useState<boolean>(false);
   const [submittedData, setSubmittedData] = useState<FormData>({});
   const [newGeneratedSchema, setNewGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
+  const [stateFormValues, setStateFormValues] = useState<FormData>({});
 
   useEffect(() => {
     console.log('new generaetd schema', newGeneratedSchema);
@@ -44,21 +45,31 @@ function Onboarding() {
 
   useEffect(() => {
     if (!form) return;
-    const formStep = form.form.steps[currentStepIndex];
-    const formStepSchemas = formStep.elements.map(it => { const { ref, required, schema } = it; return { ref, required, schema } });
-    setNewGeneratedSchema(curSchema => {
-      let newSchema = { ...curSchema };
+
+    // iterate through all steps until current
+    // constructing the form
+    let newSchema = {};
+    for (let i = 0; i<=currentStepIndex; i++) {
+      const formStep = form.form.steps[i];
+      // make sure that the step will be shown based on the rule
+      const { rule } = formStep;
+      if (rule) {
+        const fieldName = getPropertyFromRef(rule.ref);
+        const { schema } = rule;
+        // @ts-ignore
+        const valid = ajv.validate(schema, stateFormValues[fieldName]);
+        if (!valid) continue; // if a step shouldn't be shown based on the form state, don't include it in the schema creation
+      }
+      const formStepSchemas = formStep.elements.map(it => { const { ref, required, schema } = it; return { ref, required, schema } });
       formStepSchemas.forEach(it => {
         if (!it.ref) return;
-        // remove initial "#/"
         const fullRef = it.ref.substring(2);
-        // @ts-ignore
         newSchema = recursivelyAppendToSchema(fullRef, it.schema, it.required, 0, newSchema);
-        console.log('genereated a new schema', newSchema);
       });
-      return newSchema;
-    });
-  }, [currentStepIndex, form]);
+    }
+    // @ts-ignore
+    setNewGeneratedSchema(newSchema);
+  }, [currentStepIndex, form, stateFormValues]);
 
   useEffect(() => {
     // pretend that an API call happens here
@@ -75,6 +86,7 @@ function Onboarding() {
   }
 
   const handleNext = useCallback((values: FormData) => {
+    setStateFormValues(values);
     if (!form) return;
     const { steps } = form.form;
     let stepIndexToGoTo = currentStepIndex + 1;
@@ -142,7 +154,7 @@ function Onboarding() {
           default:
             const { instancePath, message } = err;
             // @ts-ignore
-            errors[instancePath] = message ?? 'This field is invalid';
+            errors[instancePath.replaceAll('/', '')] = message ?? 'This field is invalid';
             break;
         }
       }
