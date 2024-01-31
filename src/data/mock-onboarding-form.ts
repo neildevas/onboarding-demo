@@ -697,5 +697,15 @@ export const onboardingForm: OnboardingForm['form'] = {
       },
     ],
     rule: null,
-  },],
+  },{
+    step_id: 'confirm_data_interstitial',
+    title: "Ready to submit?",
+    elements: [{
+      ref: '',
+      required: false,
+      schema: null,
+      __typename: 'UiFormInterstitial',
+      label: "Please confirm your data and then click the Next button to submit!"
+    }]
+  }],
 };

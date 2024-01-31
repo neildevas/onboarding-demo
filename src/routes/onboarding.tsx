@@ -16,14 +16,15 @@ import {
 } from "@chakra-ui/react";
 import React, {useCallback, useEffect, useState} from "react";
 import {onboardingForm, schema} from "../data/mock-onboarding-form";
-import {FormOption, OnboardingForm, OnboardingFormElement, OnboardingFormStep} from "../types/onboarding";
+import {OnboardingForm, OnboardingFormElement, OnboardingFormStep, OnboardingStepRule} from "../types/onboarding";
 import {ErrorMessage, Field, FieldProps, Form, Formik} from "formik";
 import Ajv, {DefinedError, JSONSchemaType} from "ajv";
 import UiFormTable from "../components/UiFormTable";
 import UiDropdownSelect from "../components/UiDropdownSelect";
-import {merge} from 'lodash'
 import JSONPretty from 'react-json-pretty';
 import {getPropertyFromRef, recursivelyAppendToSchema} from "../utils";
+import JsonPrettyModal from "../components/JsonPrettyModal";
+import AddFormStepModal from "../components/AddFormStepModal";
 
 interface FormData {
   [key: string]: string | number | string[] | undefined;
@@ -38,10 +39,50 @@ function Onboarding() {
   const [submittedData, setSubmittedData] = useState<FormData>({});
   const [newGeneratedSchema, setNewGeneratedSchema] = useState<JSONSchemaType<any>>({ type: 'object' });
   const [stateFormValues, setStateFormValues] = useState<FormData>({});
+  const [extraStepValues, setExtraStepValues] = useState<{ state: string; title: string; message: string } | null>(null)
 
   useEffect(() => {
-    console.log('new generaetd schema', newGeneratedSchema);
-  }, [newGeneratedSchema]);
+    if (!extraStepValues) {
+      return;
+    }
+    // Construct a new step, conditionally shown on the state selected.
+    const rule: OnboardingStepRule = {
+      ref: '#/properties/address/properties/state',
+      schema: {
+        const: extraStepValues.state,
+      },
+      __typename: 'UiFormRule',
+    }
+    const step: OnboardingFormStep = {
+      step_id: `${extraStepValues.state}_unavailable_disclaimer`,
+      title: extraStepValues.title,
+      elements: [{
+        ref: '',
+        required: false,
+        schema: null,
+        __typename: 'UiFormInterstitial',
+        label: extraStepValues.message
+      }],
+      rule,
+    }
+    // place after the address step
+
+    // @ts-ignore
+    setForm(prevState => {
+      if (!prevState) return prevState;
+      const indexOf = prevState.form.steps.findIndex(it => it.step_id === 'address');
+      if (indexOf <= 0) { console.log('could not find step'); return }
+      const newSteps = prevState.form.steps.slice();
+      newSteps.splice(indexOf + 1, 0, step);
+      return {
+        ...prevState,
+        form: {
+          ...prevState?.form,
+          steps: newSteps,
+        }
+      }
+    })
+  }, [extraStepValues])
 
   useEffect(() => {
     if (!form) return;
@@ -101,8 +142,10 @@ function Onboarding() {
       // Validate the rule of the next step in the list
       const fieldName = getPropertyFromRef(nextStep.rule.ref);
       const { schema } = nextStep.rule;
+      console.log('FIELD NAME', fieldName, schema, values[fieldName]);
       // @ts-ignore
       const valid = ajv.validate(schema, values[fieldName]);
+      console.log('VALID', valid);
       if (valid) break;
       stepIndexToGoTo++;
     }
@@ -181,35 +224,47 @@ function Onboarding() {
         </Box>
       ) : (
       <Box height={'100%'} width={'100%'} p={8}>
+        <Flex direction={'row'}>
         {form ? (
-          <Formik initialValues={{}} onSubmit={handleOnSubmit} validate={validate}>
-            {({ values, errors }) => {
-              return (
-                <Form>
-                  <Box height={'100%'} w={'800px'}>
-                    <FormStep step={form.form.steps[currentStepIndex]} />
-                    <Flex direction={'row'} justifyContent={'space-between'} pt={20}>
-                      <Button onClick={() => handleBack(values)} isDisabled={currentStepIndex === 0}>Back</Button>
-                      <Button
-                        onClick={() => handleNext(values)}
-                        isDisabled={Object.keys(validateCurrentStep(values)).length !== 0}
-                        colorScheme="blue"
-                        _disabled={{ bg: 'gray.400', cursor: 'not-allowed' }}>
-                         Next
-                      </Button>
-                    </Flex>
-                  </Box>
-                </Form>
-              )
-            }}
-          </Formik>
+          <Flex direction={'column'} flex={1}>
+            <Formik initialValues={{}} onSubmit={handleOnSubmit} validate={validate}>
+              {({ values, errors }) => {
+                return (
+                  <Form>
+                    <Box height={'100%'} w={'800px'}>
+                      <FormStep step={form.form.steps[currentStepIndex]} />
+                      <Flex direction={'row'} justifyContent={'space-between'} pt={20}>
+                        <Button onClick={() => handleBack(values)} isDisabled={currentStepIndex === 0}>Back</Button>
+                        <Button
+                          onClick={() => handleNext(values)}
+                          isDisabled={Object.keys(validateCurrentStep(values)).length !== 0}
+                          colorScheme="blue"
+                          _disabled={{ bg: 'gray.400', cursor: 'not-allowed' }}>
+                           Next
+                        </Button>
+                      </Flex>
+                    </Box>
+                  </Form>
+                )
+              }}
+            </Formik>
+          </Flex>
+
         ) : (<Loading />)}
+          <Flex flex={1} alignItems={'center'} direction={'column'}>
+            <VStack spacing={'24px'}>
+              <JsonPrettyModal data={stateFormValues} buttonTitle={'See Form Values'} />
+              <JsonPrettyModal data={newGeneratedSchema} buttonTitle={'See JSON validation schema'} />
+              <JsonPrettyModal data={form?.form.steps[currentStepIndex] ?? {}} buttonTitle={'See current form step definition'} />
+              <AddFormStepModal buttonTitle={'Add a form step'} onSubmit={(val) => { setExtraStepValues(val) }} didSubmit={!!extraStepValues} />
+            </VStack>
+          </Flex>
+        </Flex>
       </Box>
       )}
     </Flex>
   );
 }
-
 
 type FormStepProps = {
   step: OnboardingFormStep;
@@ -373,7 +428,6 @@ const SubmitSuccessfulComponent = ({ data }: { data: FormData }) => {
           <JSONPretty data={data} />
         </Flex>
       </Flex>
-
     </Box>
   )
 }
