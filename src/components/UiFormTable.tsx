@@ -1,5 +1,5 @@
 import React from 'react';
-import {Table, Tbody, Tr, Td, Th, VStack, Text, Box, Flex} from "@chakra-ui/react";
+import {Table, Tbody, Tr, Td, VStack, Text, Flex} from "@chakra-ui/react";
 import {FormOption} from "../types/onboarding";
 
 type Props = {

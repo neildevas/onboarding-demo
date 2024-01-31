@@ -103,11 +103,15 @@ function Onboarding() {
         if (!valid) continue; // if a step shouldn't be shown based on the form state, don't include it in the schema creation
       }
       const formStepSchemas = formStep.elements.map(it => { const { ref, required, schema } = it; return { ref, required, schema } });
-      formStepSchemas.forEach(it => {
+      for (let j = 0; j<formStepSchemas.length; j++) {
+        const it = formStepSchemas[j];
         if (!it.ref) return;
         const fullRef = it.ref.substring(2);
         newSchema = recursivelyAppendToSchema(fullRef, it.schema, it.required, 0, newSchema);
-      });
+      }
+      // formStepSchemas.forEach(it => {
+      //
+      // });
     }
     // @ts-ignore
     setNewGeneratedSchema(newSchema);
