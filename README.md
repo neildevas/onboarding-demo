@@ -7,6 +7,8 @@ Some possible use cases for this might be:
 - Seamlessly A/B test form copy, questions, question order, etc.
 - Easily create many different "paths" within a single form by utilizing custom branching logic that is supported by JSON schema - `if`, `then`, `else`, `allOf`, `anyOf`, and more.
 
+Check out `src/data/mock-onboarding-form.ts` to see how the form steps and schema are set up.
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
