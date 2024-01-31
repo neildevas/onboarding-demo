@@ -1,4 +1,4 @@
-I created this demo project to showcase something similar to a project I worked on at [Titan](https://titan.com). It is basically a form component that is powered by a JSON-type structure and validated with a schema that is constructed dynamically according to the [JSON Schema standard](https://json-schema.org).
+I created this demo project to showcase something similar to a project I worked on at [Titan](https://titan.com). It is a form component that is powered by an array, which provides definitions for how each step should be rendered on the screen, and an object structured according to the [JSON Schema standard](https://json-schema.org) which defines how the form values should be validated. You can easily update the form by adding a new step to the array and/or updating the validation logic in the validation schema, without modifying the existing code. This makes it easy to create and serve many different "forms" from an API, which can be beneficial in numerous ways. 
 
 And now, back to your standard CRA programming ↓
 # Getting Started with Create React App
