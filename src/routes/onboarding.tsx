@@ -25,6 +25,7 @@ import JSONPretty from 'react-json-pretty';
 import {getPropertyFromRef, recursivelyAppendToSchema} from "../utils";
 import JsonPrettyModal from "../components/JsonPrettyModal";
 import AddFormStepModal from "../components/AddFormStepModal";
+import {get} from "lodash";
 
 interface FormData {
   [key: string]: string | number | string[] | undefined;
@@ -142,9 +143,9 @@ function Onboarding() {
       // Validate the rule of the next step in the list
       const fieldName = getPropertyFromRef(nextStep.rule.ref);
       const { schema } = nextStep.rule;
-      console.log('FIELD NAME', fieldName, schema, values[fieldName]);
+      console.log('FIELD NAME', fieldName, schema, get(values, fieldName));
       // @ts-ignore
-      const valid = ajv.validate(schema, values[fieldName]);
+      const valid = ajv.validate(schema, get(values, fieldName));
       console.log('VALID', valid);
       if (valid) break;
       stepIndexToGoTo++;
@@ -167,7 +168,7 @@ function Onboarding() {
       if (!prevStep.rule) break;
       const fieldName = getPropertyFromRef(prevStep.rule.ref);
       const { schema } = prevStep.rule;
-      const valid = ajv.validate(schema, values[fieldName])
+      const valid = ajv.validate(schema, get(values, fieldName))
       if (valid) break;
       stepIndexToGoTo--;
     }
