@@ -1,3 +1,6 @@
+I created this demo project to showcase something similar to a project I worked on at [Titan](https://titan.com). It is basically a form component that is powered by a JSON-type structure and validated with a schema that is constructed dynamically according to the [JSON Schema standard](https://json-schema.org).
+
+And now, back to your standard CRA programming ↓
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
